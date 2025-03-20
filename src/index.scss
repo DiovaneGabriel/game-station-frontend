@@ -1,0 +1,35 @@
+@font-face {
+    font-family: 'Upheavtt';
+    src: url('/fonts/upheavtt.ttf') format('truetype');
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+}
+
+.not-visible {
+    visibility: hidden;
+}
+
+.hidden {
+    display: none;
+}
+
+.mTop32 {
+    margin-top: 32px !important;
+}
+
+
+.shadow {
+    -webkit-box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.7);
+    -moz-box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.7);
+    box-shadow: 0px 0px 10px 0px rgba(0, 0, 0, 0.7);
+
+    &:active {
+        -webkit-box-shadow: 0px 0px 3px 0px rgba(0, 0, 0, 0.7);
+        -moz-box-shadow: 0px 0px 3px 0px rgba(0, 0, 0, 0.7);
+        box-shadow: 0px 0px 3px 0px rgba(0, 0, 0, 0.7);
+    }
+}

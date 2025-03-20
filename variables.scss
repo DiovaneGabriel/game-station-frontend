@@ -1,0 +1,15 @@
+$dynavision-color-gray: #8e8e8e;
+$dynavision-color-blue: #006fec;
+$dynavision-color-orange: #fe993e;
+$dynavision-color-yellow: #ffe000;
+$dynavision-color-primary: $dynavision-color-blue;
+$dynavision-color-title: $dynavision-color-orange;
+$dynavision-color-button: $dynavision-color-yellow;
+$dynavision-color-button-dark: darken($dynavision-color-button, 10);
+
+
+$breackpoint-sm: 576px;
+$breackpoint-md: 768px;
+$breackpoint-lg: 992px;
+$breackpoint-xl: 1200px;
+$breackpoint-xxl: 1400px;

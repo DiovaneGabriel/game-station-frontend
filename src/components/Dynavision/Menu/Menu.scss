@@ -1,0 +1,115 @@
+@import "/variables.scss";
+
+.old {
+    width: 100%;
+    height: 100%;
+    background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAHElEQVQoU2NkYGD4z0AEYBwKCmVkZIjzzBBQCABvzQulH+zhkwAAAABJRU5ErkJggg==);
+}
+
+.menu {
+    position: relative;
+    background-color: $dynavision-color-primary;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    font-family: 'Upheavtt', sans-serif;
+
+    img.background {
+        position: absolute;
+        height: auto;
+        max-width: 100%;
+        max-height: 100%;
+        top: 0;
+        left: 0;
+        right: 0;
+        margin: auto;
+        z-index: 1;
+    }
+
+    .count-games {
+        font-size: clamp(1px, 6vw, 12vh);
+        z-index: 99;
+        margin: clamp(1px, 4.2vw, 7vh) auto;
+        color: $dynavision-color-title;
+        text-transform: uppercase;
+        // text-shadow: 0 0 10px black;
+        height: min-content;
+    }
+
+    .title {
+        margin: 2vw auto 1vw auto;
+        font-size: clamp(1px, 4vw, 8vh);
+        z-index: 99;
+    }
+
+    .font-white {
+        color: white;
+    }
+
+    ul {
+        z-index: 99;
+        font-size: clamp(1px, 4vw, 9vh);
+        margin: 0 auto;
+        list-style: none;
+        padding: 0;
+        background-color: $dynavision-color-primary;
+        padding: 20px;
+        padding-top: 0;
+
+        li {
+            display: grid;
+            grid-template-columns: 7vw auto;
+            gap: 1vw;
+            // cursor: pointer;
+
+            img {
+                margin: auto;
+                width: 100%;
+            }
+
+            span {
+                margin: 0;
+            }
+
+            text-decoration: none;
+        }
+    }
+}
+
+.filter-old {
+    width: 100vw;
+    height: 100vh;
+    position: absolute;
+    opacity: .1;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    pointer-events: none;
+    background-image: -webkit-linear-gradient(#111 0%, white 20%, #111 40%, white 60%, #111 80%);
+    background-repeat: repeat;
+    background-position: 0 0;
+    background-size: 100% 60px;
+    -webkit-animation: stripes 4s linear infinite;
+    animation: stripes 4s linear infinite;
+}
+
+@-webkit-keyframes stripes {
+    100% {
+        background-position: 0 -60px;
+    }
+}
+
+@keyframes stripes {
+    100% {
+        background-position: 0 -60px;
+    }
+}
+
+@media (min-width: $breackpoint-xxl) {
+    .menu {
+        ul {
+            font-size: clamp(1px, 3.6vw, 10vh);
+        }
+    }
+}

@@ -1,0 +1,15 @@
+@import "/variables.scss";
+
+.dynavision {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+
+    .cartridges {
+        display: flex;
+        flex-direction: row;
+        margin: auto;
+        gap: 32px;
+    }
+
+}

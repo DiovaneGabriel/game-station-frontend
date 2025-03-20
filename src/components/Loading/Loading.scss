@@ -1,0 +1,19 @@
+.loading {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    background-color: #000;
+    // background-color: rgba(black, .8);
+
+    span {
+        display: none;
+        margin: auto;
+        font-size: 4rem;
+        color: white;
+        text-transform: uppercase;
+        font-family: 'Upheavtt', sans-serif;
+        background-color: rgba(red, .8);
+        padding: 1rem 2rem;
+        border-radius: 10px;
+    }
+}

@@ -1,0 +1,8 @@
+@import "/variables.scss";
+
+.logo-dynacom {
+    width: 100%;
+    path {
+        fill: darken($dynavision-color-gray, 30);
+    }
+}
