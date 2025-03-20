@@ -31,27 +31,45 @@
     EJS_language = 'pt-BR';
     EJS_startOnLoaded = true;
 
-    EJS_onSaveState = function (filename, data) {
-    // Converter Blob para um FormData para envio
-    let blob = new Blob([data], { type: "application/octet-stream" });
-    let formData = new FormData();
-    formData.append("file", blob, filename);
+    EJS_onSaveState = function (data) {
 
+        let stateBlob = new Blob([data.state], { type: "application/octet-stream" });
+        let screenshotBlob = new Blob([data.screenshot], { type: "image/png" });
 
-    // Enviar o arquivo para o backend via API
-    fetch("http://localhost/api/v1/save", {
-        method: "POST",
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        console.log("Upload feito com sucesso:", data);
-    })
-    .catch(error => {
-        console.error("Erro no upload:", error);
-    });
-};
+        let formData = new FormData();
+        formData.append("state", stateBlob, "save.state");
+        formData.append("screenshot", screenshotBlob, "screenshot.png"); // Opcional
 
+        // Enviar o arquivo para o backend via API
+        fetch("http://localhost/api/v1/save", {
+            method: "POST",
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Upload feito com sucesso:", data);
+            })
+            .catch(error => {
+                console.error("Erro no upload:", error);
+            });
+    };
+
+    EJS_onLoadState = function loadStateFromServer(filename) {
+        console.log(filename);
+        fetch(`http://localhost/api/v1/load`)
+            // .then(response => response.blob())
+            .then(blob => {
+                console.log('aqui',blob);
+                // EmulatorJS.loadState(blob);
+                let arrayBuffer = blob.arrayBuffer();
+
+                // Carrega o save state no EmulatorJS
+                window.EmulatorJS.loadState(new Uint8Array(arrayBuffer));
+            })
+            .catch(error => {
+                console.error("Erro ao carregar save state:", error);
+            });
+    };
 
     EJS_color = "#FFA500";
     // EJS_Settings = {
