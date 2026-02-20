@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { useDynavision } from "../../contexts/Dynavision";
-import { games64, games94, games101, mario, snes } from "../../data/Cartridge";
+import { games64, games94, games101, mario, snes, psx } from "../../data/Cartridge";
 
 import Menu from "../../components/Dynavision/Menu/Menu";
 import Panel from "../../components/Dynavision/Panel/Panel";
@@ -24,6 +24,8 @@ const Dynavision = () => {
       setGames(games101);
     } else if (games == 'snes') {
       setGames(snes);
+    } else if (games == 'psx') {
+      setGames(psx);
     } else if (games == 'super_mario') {
       setIsPlaying(true);
       setSelectedGame(mario);
@@ -52,6 +54,9 @@ const Dynavision = () => {
             <Cartridge onClick={() => setCartridge('snes')} className={cartridgeSelected == 'snes' ? "active" : ""}>
               <span>snes</span>
             </Cartridge>
+            {/* <Cartridge onClick={() => setCartridge('psx')} className={cartridgeSelected == 'psx' ? "active" : ""}>
+              <span>psx</span>
+            </Cartridge> */}
             {/* <Cartridge onClick={() => setCartridge('super_mario')} className={`black ${cartridgeSelected == 'super_mario' ? "active" : ""}`} >
               <img src="/images/Super+Mario+Bros.+(World)-image.jpg" />
             </Cartridge> */}
