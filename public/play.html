@@ -574,9 +574,17 @@
                 if (!response.ok) throw new Error(`Erro ao baixar save (${response.status})`);
                 const buffer = await response.arrayBuffer();
 
-                setTimeout(() => {
-                    window.EJS_emulator.gameManager.functions.loadState(new Uint8Array(buffer));
-                }, 10);
+                const stateData = new Uint8Array(buffer);
+                console.log('Carregando save, bytes:', stateData.length);
+                try {
+                    const gm = window.EJS_emulator?.gameManager;
+                    const loaderFn = gm?.loadState || window.EJS_emulator?.loadState;
+                    if (typeof loaderFn !== 'function') throw new Error('Função loadState não encontrada');
+                    const result = loaderFn.call(gm || window.EJS_emulator, stateData);
+                    console.log('Resultado loadState:', result);
+                } catch (err) {
+                    console.error('Falha ao aplicar loadState:', err);
+                }
             } catch (error) {
                 console.error('Erro ao carregar save state:', error);
             }
