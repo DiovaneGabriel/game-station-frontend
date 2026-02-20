@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-
 let games = [];
 const addGame = (id, name, file, oldCores = true, console = "NES") => {
   games.push({ id, name, file, oldCores, console });

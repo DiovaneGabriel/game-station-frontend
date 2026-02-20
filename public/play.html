@@ -4,11 +4,153 @@
 
 <link rel=icon href=docs/favicon.ico sizes="16x16 32x32 48x48 64x64" type=image/vnd.microsoft.icon>
 <meta name=viewport content="width = device-width, initial-scale = 1">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.44.2/dist/umd/supabase.js" defer></script>
 <style>
     body,
     html {
         margin: 0;
         padding: 0;
+    }
+
+    .save-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(5, 10, 25, 0.55);
+        backdrop-filter: blur(3px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    .save-modal-overlay.open {
+        display: flex;
+    }
+
+    .save-modal {
+        width: min(540px, 92vw);
+        max-height: 82vh;
+        background: #0f172a;
+        color: #e2e8f0;
+        border-radius: 14px;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+        border: 1px solid #1f2a44;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .save-modal header {
+        padding: 14px 18px;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .save-modal header h3 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: 0.2px;
+    }
+
+    .save-modal header button {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        font-size: 18px;
+        cursor: pointer;
+    }
+
+    .save-modal .content {
+        padding: 16px 18px 12px;
+        overflow-y: auto;
+        flex: 1;
+        display: grid;
+        gap: 10px;
+    }
+
+    .save-card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 10px;
+        padding: 12px 14px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        cursor: pointer;
+        transition: border-color 120ms ease, transform 120ms ease;
+    }
+
+    .save-card:hover {
+        border-color: #38bdf8;
+        transform: translateY(-1px);
+    }
+
+    .save-card .meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .save-card .meta .title {
+        font-weight: 600;
+        color: #e2e8f0;
+    }
+
+    .save-card .meta .subtitle {
+        font-size: 12px;
+        color: #94a3b8;
+    }
+
+    .save-card .badge {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #1d4ed8;
+        color: #e0f2fe;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    .save-modal .footer {
+        padding: 12px 18px 16px;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        background: #0b1220;
+        border-top: 1px solid #1f2937;
+    }
+
+    .save-modal .footer button {
+        border: 1px solid #1f2937;
+        padding: 10px 14px;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        background: #111827;
+        color: #e2e8f0;
+        transition: border-color 120ms ease, background 120ms ease;
+    }
+
+    .save-modal .footer button.primary {
+        background: #2563eb;
+        border-color: #1d4ed8;
+        color: #e0f2fe;
+    }
+
+    .save-modal .footer button:hover {
+        border-color: #38bdf8;
+    }
+
+    .save-empty,
+    .save-loading {
+        padding: 26px 10px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 14px;
     }
 </style>
 
@@ -31,27 +173,265 @@
     EJS_language = 'pt-BR';
     EJS_startOnLoaded = true;
 
+    const SUPABASE_URL = window.SUPABASE_URL || "https://zoyxotkqttuduioneezl.supabase.co";
+    const SUPABASE_ANON_KEY = window.SUPABASE_ANON_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpveXhvdGtxdHR1ZHVpb25lZXpsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE1OTM3NTQsImV4cCI6MjA4NzE2OTc1NH0.cFh1cw-R6Mjf-sr4el4Bt4FPt5dFX66EQju9DUT-mTc";
+    const SUPABASE_BUCKET = "saves";
+    const SUPABASE_TABLE = "saves";
+
+    let savePicker;
+    let supabaseClient;
+
+    const ensureSupabase = () => {
+        if (supabaseClient) return supabaseClient;
+        if (!window.supabase || !SUPABASE_URL.startsWith("https://") || SUPABASE_ANON_KEY === "YOUR-ANON-KEY") {
+            console.error("Supabase não configurado. Defina SUPABASE_URL e SUPABASE_ANON_KEY.");
+            return null;
+        }
+        const { createClient } = window.supabase;
+        supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        return supabaseClient;
+    };
+
+    const USER_COOKIE = "gs_user_id";
+    const getUserId = () => {
+        const existing = document.cookie.split("; ").find(r => r.startsWith(`${USER_COOKIE}=`));
+        if (existing) return existing.split("=")[1];
+        const id = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2);
+        document.cookie = `${USER_COOKIE}=${id}; path=/; max-age=${60 * 60 * 24 * 400}`;
+        return id;
+    };
+
+    const getDownloadUrl = (save) => {
+        if (!save) return null;
+        if (save.downloadUrl) return save.downloadUrl;
+        if (save.fileUrl) return save.fileUrl;
+        if (save.filename) return save.filename;
+        if (save.id !== undefined && save.id !== null) return save.id;
+        return null;
+    };
+
+    const ensureSavePicker = () => {
+        if (savePicker) return savePicker;
+
+        const overlay = document.createElement('div');
+        overlay.className = 'save-modal-overlay';
+
+        const modal = document.createElement('div');
+        modal.className = 'save-modal';
+
+        const header = document.createElement('header');
+        const title = document.createElement('h3');
+        title.textContent = 'Selecionar save';
+        const closeBtn = document.createElement('button');
+        closeBtn.setAttribute('aria-label', 'Fechar');
+        closeBtn.innerHTML = '&times;';
+        header.appendChild(title);
+        header.appendChild(closeBtn);
+
+        const content = document.createElement('div');
+        content.className = 'content';
+
+        const footer = document.createElement('div');
+        footer.className = 'footer';
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancelar';
+        const reloadBtn = document.createElement('button');
+        reloadBtn.textContent = 'Recarregar lista';
+        reloadBtn.className = 'primary';
+        footer.appendChild(cancelBtn);
+        footer.appendChild(reloadBtn);
+
+        modal.appendChild(header);
+        modal.appendChild(content);
+        modal.appendChild(footer);
+        overlay.appendChild(modal);
+        document.body.appendChild(overlay);
+
+        savePicker = { overlay, modal, header, closeBtn, content, footer, cancelBtn, reloadBtn };
+        return savePicker;
+    };
+
+    const setSaveList = (saves) => {
+        const { content } = ensureSavePicker();
+        content.innerHTML = '';
+
+        if (!Array.isArray(saves) || saves.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'save-empty';
+            empty.textContent = 'Nenhum save encontrado.';
+            content.appendChild(empty);
+            return;
+        }
+
+        saves.forEach((save) => {
+            const card = document.createElement('div');
+            card.className = 'save-card';
+
+            const meta = document.createElement('div');
+            meta.className = 'meta';
+
+            const title = document.createElement('div');
+            title.className = 'title';
+            title.textContent = save.name || save.filename || `Save #${save.id ?? ''}`;
+
+            const subtitle = document.createElement('div');
+            subtitle.className = 'subtitle';
+            const createdAt = save.created_at || save.createdAt;
+            const createdLabel = createdAt ? new Date(createdAt).toLocaleString('pt-BR') : 'Data não informada';
+            subtitle.textContent = `Criado em ${createdLabel}`;
+
+            meta.appendChild(title);
+            meta.appendChild(subtitle);
+
+            const badge = document.createElement('div');
+            badge.className = 'badge';
+            badge.textContent = save.console || save.system || 'Save state';
+
+            card.appendChild(meta);
+            card.appendChild(badge);
+
+            card.addEventListener('click', () => {
+                hideSavePicker(save);
+            });
+
+            content.appendChild(card);
+        });
+    };
+
+    // Simple resolver store to keep functions without leaking
+    const pendingResolvers = new Map();
+    let resolverId = 0;
+
+    const awaitSaveSelection = async () => {
+        const picker = ensureSavePicker();
+        picker.overlay.classList.add('open');
+
+        picker.content.innerHTML = '<div class="save-loading">Carregando saves...</div>';
+
+        const currentResolverId = (++resolverId).toString();
+
+        const loadList = async () => {
+            try {
+                const supa = ensureSupabase();
+                const userId = getUserId();
+                if (!supa) throw new Error("Supabase não configurado.");
+
+                const { data, error } = await supa
+                    .from(SUPABASE_TABLE)
+                    .select("id, name, game_id, user_id, created_at, state_path, screenshot_path, console, system")
+                    .eq("game_id", EJS_gameID)
+                    .eq("user_id", userId)
+                    .order("created_at", { ascending: false });
+                if (error) throw error;
+
+                const savesWithUrls = await Promise.all((data || []).map(async (row) => {
+                    const { data: signedState } = await supa
+                        .storage
+                        .from(SUPABASE_BUCKET)
+                        .createSignedUrl(row.state_path, 60 * 5);
+                    let screenshotUrl = null;
+                    if (row.screenshot_path) {
+                        const { data: signedShot } = await supa
+                            .storage
+                            .from(SUPABASE_BUCKET)
+                            .createSignedUrl(row.screenshot_path, 60 * 5);
+                        screenshotUrl = signedShot?.signedUrl || null;
+                    }
+                    return {
+                        ...row,
+                        downloadUrl: signedState?.signedUrl || null,
+                        screenshotUrl,
+                    };
+                }));
+
+                const saves = savesWithUrls;
+                setSaveList(saves);
+            } catch (error) {
+                console.error('Erro ao listar saves:', error);
+                picker.content.innerHTML = '<div class="save-empty">Erro ao carregar lista de saves.</div>';
+            }
+        };
+
+        picker.reloadBtn.onclick = loadList;
+        picker.closeBtn.onclick = () => hideSavePicker(null, currentResolverId);
+        picker.cancelBtn.onclick = () => hideSavePicker(null, currentResolverId);
+
+        await loadList();
+
+        return new Promise((resolve) => {
+            pendingResolvers.set(currentResolverId, resolve);
+            picker.overlay.dataset.resolverId = currentResolverId;
+        });
+    };
+
+    const hideSavePicker = (selected, id) => {
+        if (!savePicker) return;
+        const { overlay } = savePicker;
+        overlay.classList.remove('open');
+
+        const resolverKey = id || overlay.dataset.resolverId;
+        const resolveFn = pendingResolvers.get(resolverKey);
+        pendingResolvers.delete(resolverKey);
+        overlay.dataset.resolverId = '';
+        if (resolveFn) resolveFn(selected || null);
+    };
+
+    // Salvar state no backend
     EJS_onSaveState = function (data) {
+        const supa = ensureSupabase();
+        const userId = getUserId();
+        const gameId = EJS_gameID || _console;
+
+        if (!supa) {
+            console.error("Supabase não configurado. Save não enviado.");
+            return;
+        }
 
         let stateBlob = new Blob([data.state], { type: "application/octet-stream" });
         let screenshotBlob = new Blob([data.screenshot], { type: "image/png" });
 
-        let formData = new FormData();
-        formData.append("state", stateBlob, "save.state");
-        formData.append("screenshot", screenshotBlob, "screenshot.png"); // Opcional
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const basePath = `${userId}/${gameId}/${timestamp}`;
+        const statePath = `${basePath}.state`;
+        const screenshotPath = `${basePath}.png`;
 
-        // Enviar o arquivo para o backend via API
-        fetch("http://localhost/api/v1/save", {
-            method: "POST",
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Upload feito com sucesso:", data);
-            })
-            .catch(error => {
-                console.error("Erro no upload:", error);
-            });
+        (async () => {
+            try {
+                const { error: upErr } = await supa.storage
+                    .from(SUPABASE_BUCKET)
+                    .upload(statePath, stateBlob, {
+                        contentType: "application/octet-stream",
+                        upsert: true
+                    });
+                if (upErr) throw upErr;
+
+                const { error: shotErr } = await supa.storage
+                    .from(SUPABASE_BUCKET)
+                    .upload(screenshotPath, screenshotBlob, {
+                        contentType: "image/png",
+                        upsert: true
+                    });
+                if (shotErr) throw shotErr;
+
+                const { error: dbErr } = await supa
+                    .from(SUPABASE_TABLE)
+                    .insert({
+                        game_id: gameId,
+                        user_id: userId,
+                        name: `Save ${new Date().toLocaleString('pt-BR')}`,
+                        state_path: statePath,
+                        screenshot_path: screenshotPath,
+                        console: _console,
+                        system: _console
+                    });
+                if (dbErr) throw dbErr;
+
+                console.log("Save enviado para Supabase com sucesso.");
+            } catch (error) {
+                console.error("Erro ao salvar no Supabase:", error?.message || error);
+                alert(`Erro ao salvar no Supabase: ${error?.message || error}`);
+            }
+        })();
     };
 
     // EJS_loadStateURL = 'http://localhost/api/v1/load';
@@ -73,139 +453,30 @@
     // };
 
     EJS_onGameStart = function () {
-        // console.log('start');
-        // console.log(window.EJS_emulator.gameManager.functions.loadState('http://localhost/api/v1/load'));
-        window.EJS_emulator.on("loadState", function loadState() {
+        window.EJS_emulator.on("loadState", async function () {
+            try {
+                const selected = await awaitSaveSelection();
+                if (!selected) {
+                    console.log('Carregamento de save cancelado pelo usuário.');
+                    return;
+                }
 
-            // console.log(typeof window.EJS_emulator.functions.loadState === 'function');
+                const downloadUrl = getDownloadUrl(selected);
+                if (!downloadUrl) {
+                    console.error('Não foi possível determinar a URL do save selecionado.');
+                    return;
+                }
 
-            // window.EJS_emulator.stop(); // Para o emulador atual (caso esteja rodando)
+                const response = await fetch(downloadUrl);
+                if (!response.ok) throw new Error(`Erro ao baixar save (${response.status})`);
+                const buffer = await response.arrayBuffer();
 
-            // Define a URL do save state que será carregado
-            // EJS_loadStateURL = 'http://localhost/api/v1/load';
-
-            // Reinicia o emulador com os mesmos parâmetros
-            // window.EJS_emulator.start();
-
-            // fetch(`http://localhost/api/v1/load`)
-            //     // .then(response => response.blob())
-            //     .then(blob => {
-            //         // EmulatorJS.loadState(blob);
-            //         let arrayBuffer = blob.arrayBuffer();
-
-            //         // Carrega o save state no EmulatorJS
-            //         // window.EJS_emulator.loadState(new Uint8Array(arrayBuffer));
-            //         // console.log(blob);
-            //         // console.log(window.EJS_emulator);
-            //         // window.EJS_emulator.gameManager.functions.loadState(new Uint8Array(arrayBuffer));
-            //         window.EJS_emulator.gameManager.functions.loadState(blob);
-            //     })
-            //     .catch(error => {
-            //         console.error("Erro ao carregar save state:", error);
-            //     });
-
-
-            const toData = (data, rv) => {
-                if (!(data instanceof ArrayBuffer) && !(data instanceof Uint8Array) && !(data instanceof Blob)) return null;
-                if (rv) return true;
-                return new Promise(async (resolve) => {
-                    if (data instanceof ArrayBuffer) {
-                        resolve(new Uint8Array(data));
-                    } else if (data instanceof Uint8Array) {
-                        resolve(data);
-                    } else if (data instanceof Blob) {
-                        resolve(new Uint8Array(await data.arrayBuffer()));
-                    }
-                    resolve();
-                })
-            };
-
-            const downloadFile = (path, progressCB, notWithPath, opts) => {
-                return new Promise(async cb => {
-                    const data = toData(path);//check other data types
-                    if (data) {
-                        data.then((game) => {
-                            if (opts.method === 'HEAD') {
-                                cb({ headers: {} });
-                            } else {
-                                cb({ headers: {}, data: game });
-                            }
-                        })
-                        return;
-                    }
-                    const basePath = notWithPath ? '' : this.config.dataPath;
-                    path = basePath + path;
-                    if (!notWithPath && this.config.filePaths && typeof this.config.filePaths[path.split('/').pop()] === "string") {
-                        path = this.config.filePaths[path.split('/').pop()];
-                    }
-                    let url;
-                    try { url = new URL(path) } catch (e) { };
-                    if (url && !['http:', 'https:'].includes(url.protocol)) {
-                        //Most commonly blob: urls. Not sure what else it could be
-                        if (opts.method === 'HEAD') {
-                            cb({ headers: {} });
-                            return;
-                        }
-                        try {
-                            let res = await fetch(path)
-                            if ((opts.type && opts.type.toLowerCase() === 'arraybuffer') || !opts.type) {
-                                res = await res.arrayBuffer();
-                            } else {
-                                res = await res.text();
-                                try { res = JSON.parse(res) } catch (e) { }
-                            }
-                            if (path.startsWith('blob:')) URL.revokeObjectURL(path);
-                            cb({ data: res, headers: {} });
-                        } catch (e) {
-                            cb(-1);
-                        }
-                        return;
-                    }
-                    const xhr = new XMLHttpRequest();
-                    if (progressCB instanceof Function) {
-                        xhr.addEventListener('progress', (e) => {
-                            const progress = e.total ? ' ' + Math.floor(e.loaded / e.total * 100).toString() + '%' : ' ' + (e.loaded / 1048576).toFixed(2) + 'MB';
-                            progressCB(progress);
-                        });
-                    }
-                    xhr.onload = function () {
-                        if (xhr.readyState === xhr.DONE) {
-                            let data = xhr.response;
-                            if (xhr.status.toString().startsWith("4") || xhr.status.toString().startsWith("5")) {
-                                cb(-1);
-                                return;
-                            }
-                            try { data = JSON.parse(data) } catch (e) { }
-                            cb({
-                                data: data,
-                                headers: {
-                                    "content-length": xhr.getResponseHeader('content-length')
-                                }
-                            });
-                        }
-                    }
-                    if (opts.responseType) xhr.responseType = opts.responseType;
-                    xhr.onerror = () => cb(-1);
-                    xhr.open(opts.method, path, true);
-                    xhr.send();
-                })
-            };
-
-            downloadFile('http://localhost/api/v1/load', (progress) => {
-                // this.textElem.innerText = this.localization("Download Game State") + progress;
-            }, true, { responseType: "arraybuffer", method: "GET" }).then((res) => {
-                // if (res === -1) {
-                //     this.startGameError(this.localization('Network Error'));
-                //     return;
-                // }
-                // this.on("start", () => {
                 setTimeout(() => {
-                    window.EJS_emulator.gameManager.functions.loadState(new Uint8Array(res.data));
+                    window.EJS_emulator.gameManager.functions.loadState(new Uint8Array(buffer));
                 }, 10);
-                // })
-                // resolve();
-            });
-
+            } catch (error) {
+                console.error('Erro ao carregar save state:', error);
+            }
         });
     };
 
