@@ -85,6 +85,25 @@
         transition: border-color 120ms ease, transform 120ms ease;
     }
 
+    .save-card .thumb {
+        width: 96px;
+        height: 72px;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #0b1220;
+        border: 1px solid #1f2937;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+    }
+
+    .save-card .thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+    }
+
     .save-card:hover {
         border-color: #38bdf8;
         transform: translateY(-1px);
@@ -118,8 +137,9 @@
     .save-modal .footer {
         padding: 12px 18px 16px;
         display: flex;
-        justify-content: flex-end;
-        gap: 10px;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
         background: #0b1220;
         border-top: 1px solid #1f2937;
     }
@@ -161,7 +181,8 @@
     const urlParams = new URLSearchParams(window.location.search);
     const id = urlParams.get('id');
     const _console = urlParams.get('console');
-    const file = `/emulatorJs/roms/${_console}/${urlParams.get('file')}`;
+    const game_id = urlParams.get('file');
+    const file = `/emulatorJs/roms/${_console}/${game_id}`;
     const oldCores = urlParams.get('oldCores') == 0 ? false : true;
 
     EJS_player = '#game';
@@ -169,7 +190,7 @@
     EJS_oldCores = oldCores;
     EJS_gameUrl = file;
     EJS_pathtodata = '/emulatorJs/data/';
-    EJS_gameID = id;
+    EJS_gameID = game_id;
     EJS_language = 'pt-BR';
     EJS_startOnLoaded = true;
 
@@ -180,6 +201,25 @@
 
     let savePicker;
     let supabaseClient;
+    let currentPage = 1;
+    let totalPages = 1;
+    const PAGE_SIZE = 10;
+    const dataURLToBlob = async (dataUrl) => {
+        const res = await fetch(dataUrl);
+        return res.blob();
+    };
+
+    const captureScreenshotBlob = async () => {
+        const canvas = document.querySelector('#game canvas');
+        if (!canvas || typeof canvas.toDataURL !== 'function') return null;
+        try {
+            const dataUrl = canvas.toDataURL('image/png');
+            return await dataURLToBlob(dataUrl);
+        } catch (err) {
+            console.warn('Falha ao capturar screenshot do canvas:', err);
+            return null;
+        }
+    };
 
     const ensureSupabase = () => {
         if (supabaseClient) return supabaseClient;
@@ -233,11 +273,30 @@
 
         const footer = document.createElement('div');
         footer.className = 'footer';
+
+        const paginationBox = document.createElement('div');
+        paginationBox.style.display = 'flex';
+        paginationBox.style.gap = '8px';
+        paginationBox.style.alignItems = 'center';
+
+        const prevBtn = document.createElement('button');
+        prevBtn.textContent = '← Anteriores';
+        const pageLabel = document.createElement('span');
+        pageLabel.style.color = '#94a3b8';
+        pageLabel.style.fontSize = '13px';
+        pageLabel.textContent = 'Página 1/1';
+        const nextBtn = document.createElement('button');
+        nextBtn.textContent = 'Próximos →';
+        paginationBox.appendChild(prevBtn);
+        paginationBox.appendChild(pageLabel);
+        paginationBox.appendChild(nextBtn);
+
         const cancelBtn = document.createElement('button');
         cancelBtn.textContent = 'Cancelar';
         const reloadBtn = document.createElement('button');
         reloadBtn.textContent = 'Recarregar lista';
         reloadBtn.className = 'primary';
+        footer.appendChild(paginationBox);
         footer.appendChild(cancelBtn);
         footer.appendChild(reloadBtn);
 
@@ -247,7 +306,7 @@
         overlay.appendChild(modal);
         document.body.appendChild(overlay);
 
-        savePicker = { overlay, modal, header, closeBtn, content, footer, cancelBtn, reloadBtn };
+        savePicker = { overlay, modal, header, closeBtn, content, footer, cancelBtn, reloadBtn, prevBtn, nextBtn, pageLabel };
         return savePicker;
     };
 
@@ -266,6 +325,21 @@
         saves.forEach((save) => {
             const card = document.createElement('div');
             card.className = 'save-card';
+
+            const thumb = document.createElement('div');
+            thumb.className = 'thumb';
+            if (save.screenshotUrl) {
+                const img = document.createElement('img');
+                img.src = save.screenshotUrl;
+                img.alt = 'Screenshot do save';
+                thumb.appendChild(img);
+            } else {
+                const placeholder = document.createElement('div');
+                placeholder.style.color = '#94a3b8';
+                placeholder.style.fontSize = '12px';
+                placeholder.textContent = 'Sem imagem';
+                thumb.appendChild(placeholder);
+            }
 
             const meta = document.createElement('div');
             meta.className = 'meta';
@@ -287,6 +361,7 @@
             badge.className = 'badge';
             badge.textContent = save.console || save.system || 'Save state';
 
+            card.appendChild(thumb);
             card.appendChild(meta);
             card.appendChild(badge);
 
@@ -310,19 +385,30 @@
 
         const currentResolverId = (++resolverId).toString();
 
-        const loadList = async () => {
+        const loadList = async (page = 1) => {
             try {
                 const supa = ensureSupabase();
                 const userId = getUserId();
                 if (!supa) throw new Error("Supabase não configurado.");
 
+                currentPage = Math.max(1, page);
+                const from = (currentPage - 1) * PAGE_SIZE;
+                const to = from + PAGE_SIZE - 1;
+
                 const { data, error } = await supa
                     .from(SUPABASE_TABLE)
-                    .select("id, name, game_id, user_id, created_at, state_path, screenshot_path, console, system")
+                    .select("id, name, game_id, user_id, created_at, state_path, screenshot_path, console, system", { count: 'exact' })
                     .eq("game_id", EJS_gameID)
                     .eq("user_id", userId)
-                    .order("created_at", { ascending: false });
+                    .order("created_at", { ascending: false })
+                    .range(from, to);
                 if (error) throw error;
+
+                const total = (data && typeof data.count === 'number') ? data.count : (data?.length || 0);
+                totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+                savePicker.pageLabel.textContent = `Página ${currentPage}/${totalPages}`;
+                savePicker.prevBtn.disabled = currentPage <= 1;
+                savePicker.nextBtn.disabled = currentPage >= totalPages;
 
                 const savesWithUrls = await Promise.all((data || []).map(async (row) => {
                     const { data: signedState } = await supa
@@ -352,11 +438,17 @@
             }
         };
 
-        picker.reloadBtn.onclick = loadList;
+        picker.reloadBtn.onclick = () => loadList(currentPage);
+        picker.prevBtn.onclick = () => {
+            if (currentPage > 1) loadList(currentPage - 1);
+        };
+        picker.nextBtn.onclick = () => {
+            if (currentPage < totalPages) loadList(currentPage + 1);
+        };
         picker.closeBtn.onclick = () => hideSavePicker(null, currentResolverId);
         picker.cancelBtn.onclick = () => hideSavePicker(null, currentResolverId);
 
-        await loadList();
+        await loadList(currentPage);
 
         return new Promise((resolve) => {
             pendingResolvers.set(currentResolverId, resolve);
@@ -377,7 +469,7 @@
     };
 
     // Salvar state no backend
-    EJS_onSaveState = function (data) {
+    EJS_onSaveState = async function (data) {
         const supa = ensureSupabase();
         const userId = getUserId();
         const gameId = EJS_gameID || _console;
@@ -388,23 +480,34 @@
         }
 
         let stateBlob = new Blob([data.state], { type: "application/octet-stream" });
-        let screenshotBlob = new Blob([data.screenshot], { type: "image/png" });
+
+        // Prioriza screenshot fornecido pelo EmulatorJS (geralmente já em PNG)
+        let screenshotBlob = null;
+        if (data.screenshot) {
+            screenshotBlob = new Blob([data.screenshot], { type: "image/png" });
+            if (screenshotBlob.size === 0) screenshotBlob = null;
+        }
+        // Se vier vazio ou ausente, tenta capturar do canvas
+        if (!screenshotBlob) {
+            screenshotBlob = await captureScreenshotBlob();
+            if (screenshotBlob && screenshotBlob.size === 0) screenshotBlob = null;
+        }
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const basePath = `${userId}/${gameId}/${timestamp}`;
         const statePath = `${basePath}.state`;
         const screenshotPath = `${basePath}.png`;
 
-        (async () => {
-            try {
-                const { error: upErr } = await supa.storage
-                    .from(SUPABASE_BUCKET)
-                    .upload(statePath, stateBlob, {
-                        contentType: "application/octet-stream",
-                        upsert: true
-                    });
-                if (upErr) throw upErr;
+        try {
+            const { error: upErr } = await supa.storage
+                .from(SUPABASE_BUCKET)
+                .upload(statePath, stateBlob, {
+                    contentType: "application/octet-stream",
+                    upsert: true
+                });
+            if (upErr) throw upErr;
 
+            if (screenshotBlob) {
                 const { error: shotErr } = await supa.storage
                     .from(SUPABASE_BUCKET)
                     .upload(screenshotPath, screenshotBlob, {
@@ -412,26 +515,26 @@
                         upsert: true
                     });
                 if (shotErr) throw shotErr;
-
-                const { error: dbErr } = await supa
-                    .from(SUPABASE_TABLE)
-                    .insert({
-                        game_id: gameId,
-                        user_id: userId,
-                        name: `Save ${new Date().toLocaleString('pt-BR')}`,
-                        state_path: statePath,
-                        screenshot_path: screenshotPath,
-                        console: _console,
-                        system: _console
-                    });
-                if (dbErr) throw dbErr;
-
-                console.log("Save enviado para Supabase com sucesso.");
-            } catch (error) {
-                console.error("Erro ao salvar no Supabase:", error?.message || error);
-                alert(`Erro ao salvar no Supabase: ${error?.message || error}`);
             }
-        })();
+
+            const { error: dbErr } = await supa
+                .from(SUPABASE_TABLE)
+                .insert({
+                    game_id: gameId,
+                    user_id: userId,
+                    name: `Save ${new Date().toLocaleString('pt-BR')}`,
+                    state_path: statePath,
+                    screenshot_path: screenshotBlob ? screenshotPath : null,
+                    console: _console,
+                    system: _console
+                });
+            if (dbErr) throw dbErr;
+
+            console.log("Save enviado para Supabase com sucesso.");
+        } catch (error) {
+            console.error("Erro ao salvar no Supabase:", error?.message || error);
+            alert(`Erro ao salvar no Supabase: ${error?.message || error}`);
+        }
     };
 
     // EJS_loadStateURL = 'http://localhost/api/v1/load';
